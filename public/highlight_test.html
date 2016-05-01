@@ -1,0 +1,50 @@
+<head>
+<script src="javascripts/pixi.js"></script>
+</head>
+<body>
+<script>
+
+var renderer = PIXI.autoDetectRenderer(400, 400,{backgroundColor : 0x1099bb});
+document.body.appendChild(renderer.view);
+
+// create the root of the scene graph
+var stage = new PIXI.Container();
+stage.interactive = true;
+
+
+var highlight_box = new PIXI.Graphics();
+highlight_box.beginFill(0x040404, 0.5);
+highlight_box.lineStyle(0, 0xffd900, 1);
+
+var rect;
+rect = highlight_box.drawRoundedRect(75,75,100,100);
+
+showHideRect = function(){
+
+	rect.visible = !rect.visible;
+
+	// rect.destroy();
+
+	// rect.remove();
+
+	// highlight_box.addChild(rect);
+	// highlight_box.removeChild(rect);
+
+}
+
+var rect2 = new PIXI.Graphics();
+rect2.beginFill(0x040404, 0.5);
+rect2.drawRoundedRect(175,175,100,100);
+stage.addChildAt(rect2,0);
+
+stage.addChildAt(highlight_box,0);
+
+
+animate();
+function animate() {
+    renderer.render(stage);
+    requestAnimationFrame( animate );
+}
+
+</script>
+</body>

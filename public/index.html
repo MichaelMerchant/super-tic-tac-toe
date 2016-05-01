@@ -1,0 +1,320 @@
+<head>
+<script src="javascripts/pixi.js"></script>
+</head>
+<body>
+<script>
+
+var renderer = PIXI.autoDetectRenderer(860, 820,{backgroundColor : 0x1099bb});
+document.body.appendChild(renderer.view);
+
+// create the root of the scene graph
+var stage = new PIXI.Container();
+stage.interactive = true;
+var graphics = new PIXI.Graphics();
+
+// set a fill and line style
+graphics.beginFill(0xFF3300);
+graphics.lineStyle(4, 0x404040, 1); //0xffd900
+
+//set constants
+var ttt_line_color = 0x404040; //also tried 0x404040 - 0x000000
+var square_length = 250,
+	padding = 50,
+	length_of_line = 750;
+
+
+
+// Build the board
+var T3 = T3 || {};
+var BasicGrid = function(x,y){
+	this.x = x || 0;
+	this.y = y || 0;
+	this.square_size = 52;
+	var grid = new Array(3);
+	for (var i = 0; i < 3; i++) {
+		grid[i] = new Array(3);
+		for (var j = 0; j < 3; j++){
+			grid[i][j]=" ";
+		}
+	}
+
+	this.hasAvailableMoves = function(){
+		for(var i =0; i<3; i++){
+			for(var j=0; j<3; j++){
+				if(grid[i][j]===" ") return true;
+			}
+		}
+		return false;
+	}
+
+	this.play = function(x,y,value){
+		if(grid[x][y]!==" "){
+			return {error:"spot_taken",message: grid[x][y]+" has already moved in that spot."};
+		}else{
+			grid[x][y] = value;
+			write(this.x + 5 + x*this.square_size, this.y + 5 + y*this.square_size, value);
+			if(this.winner === " "){ 
+				this._check_winner_();
+
+			};
+			return {success : true};
+		}
+	}
+
+	this._write_winner_ = function(){
+		write(this.x-49, this.y + this.square_size*3 + 7, this.winner + " won this square" );
+	}
+
+	this._check_winner_ = function(){
+		if(this.winner !== " ") return this.winner ;
+
+		// TODO - figure out why I can't set the style here without breaking this
+		// graphics.lineStyle(4, ttt_line_color, 1);
+		
+		//horizontal win
+		for(var row = 0; row<3; row ++){
+			if(grid[0][row] !== " " && grid[0][row] === grid[1][row] && grid[1][row] ===grid[2][row]){
+				graphics.lineStyle(4, ttt_line_color, 1);
+				draw_line(this.x-10, this.y + (0.5+row)*this.square_size-3, this.x + 3*this.square_size-15, this.y+(0.5+row)*this.square_size-3);
+				this.winner = grid[0][row];
+				this._write_winner_();
+			}
+		}
+		//vertical win
+		for(var col = 0; col<3; col ++){
+			if(grid[col][0] !== " " && grid[col][0] === grid[col][1] && grid[col][1] ===grid[col][2]){
+				graphics.lineStyle(4, ttt_line_color, 1);
+				draw_line(this.x+ (0.5+col)*this.square_size-12, this.y -3, this.x+(0.5+col)*this.square_size-12, this.y + 3*this.square_size-8);
+				this.winner = grid[col][0];
+				this._write_winner_();
+			}
+		}
+
+		//diagonal win
+		if(grid[0][0] !== " " && grid[0][0] === grid[1][1] && grid[1][1] ===grid[2][2]){
+			graphics.lineStyle(4, ttt_line_color, 1);
+			draw_line(this.x-10, this.y -2, this.x + 3*this.square_size-15, this.y + 3*this.square_size-8);
+			this.winner = grid[0][0];
+			this._write_winner_();
+		}
+		if(grid[2][0] !== " " && grid[2][0] === grid[1][1] && grid[1][1] ===grid[0][2]){
+			graphics.lineStyle(4, ttt_line_color, 1);
+			draw_line(this.x-10, this.y + 3*this.square_size-6, this.x + 3*this.square_size-15, this.y -2);
+			this.winner = grid[2][0];
+			this._write_winner_();
+		}
+
+		if(this.winner !== " ") T3.is_game_over();
+	}
+
+	this.winner = " ";
+	this._highlighted_ = true;
+	this._highlight_graphic_ = new PIXI.Graphics();
+	this._highlight_graphic_.beginFill(0x009933, 0.5);
+	this._highlight_ = this._highlight_graphic_.drawRect(this.x-padding-18,this.y-padding,254,250);
+
+	stage.addChildAt(this._highlight_graphic_,0);
+
+	this.highlight = function(visible){
+		if(visible===undefined) visible = true;
+		this._highlight_.visible = visible;
+	}
+
+	return this;
+}
+
+T3.board = Array(3);
+
+function draw_small_grids(){
+	for(var i = 0; i<3; i++){
+		T3.board[i] = Array(3);
+		for(var j=0; j<3; j++){
+			T3.board[i][j] = new BasicGrid(60+ 255*i + padding, 50+250*j + padding);
+			draw_small_grid(i,j);
+		}
+	}	
+}
+draw_small_grids();
+
+
+var currentPlayer = "o";
+var currentMoveX = null;
+var currentMoveY = null;
+T3.play = function( boardX, boardY, gridX, gridY, value){
+	if( !(currentMoveX === null && currentMoveY === null ) && (currentMoveX !== boardX || currentMoveY !== boardY)){
+		//TODO Make this error message more informative
+		return {error:"wrong_grid", message:"That move is illegal."};
+	}else{
+		var result = this.board[boardX][boardY].play(gridX, gridY, value);
+		if(result.success){
+			if(this.board[gridX][gridY].hasAvailableMoves()){
+				currentMoveX = gridX;
+				currentMoveY = gridY;
+			}else{
+				currentMoveX = null;
+				currentMoveY = null;
+			}
+
+			if(currentPlayer === "o"){
+				currentPlayer = "x" 
+			}else{
+				currentPlayer = "o";
+			}
+			this.highlight_legal_grid();
+		}
+		return result;
+	}
+}
+
+T3.helper_text = new PIXI.Text("",{font : '24px Arial', align : 'center'});
+T3.helper_text.x = 250;
+T3.helper_text.y = 5;
+stage.addChild(T3.helper_text);
+T3.highlight_legal_grid = function(){
+	if (currentMoveX === null && currentMoveY === null) {
+		T3.helper_text.text = currentPlayer.toUpperCase()+"'s turn to move anywhere on the board";
+	}else{
+		for(var row = 0; row <3; row++){
+			for(var col = 0; col<3; col++){
+				this.board[col][row].highlight(false);
+			}
+		}
+		T3.helper_text.text = currentPlayer.toUpperCase()+"'s turn to move in the highlighted grid.";
+		this.board[currentMoveX][currentMoveY].highlight(true);
+	}
+}
+T3.highlight_legal_grid();
+
+T3.is_game_over = function(){
+	var grid = T3.board;
+	var winner = " ";
+	//horizontal win
+	for(var row = 0; row<3; row ++){
+		if(grid[0][row] !== " " && grid[0][row] === grid[1][row] && grid[1][row] ===grid[2][row]){
+			graphics.lineStyle(10, ttt_line_color, 1);
+			draw_line(10, (0.5+row)*square_length-3, 3*square_length-15, (0.5+row)*square_length-3);
+			winner = grid[0][row];
+			alert("GAME OVER!\n"+winner+" has won the game!");
+		}
+	}
+	//vertical win
+	for(var col = 0; col<3; col ++){
+		if(grid[col][0] !== " " && grid[col][0] === grid[col][1] && grid[col][1] ===grid[col][2]){
+			graphics.lineStyle(10, ttt_line_color, 1);
+			draw_line((0.5+row)*square_length-3, this.y -10, (0.5+row)*square_length-3), 3*square_length-15;
+			winner = grid[col][0];
+			alert("GAME OVER!\n"+winner+" has won the game!");
+		}
+	}
+
+	//diagonal win
+	if(grid[0][0] !== " " && grid[0][0] === grid[1][1] && grid[1][1] ===grid[2][2]){
+		graphics.lineStyle(10, ttt_line_color, 1);
+		draw_line(10, 10, 3*square_length-15, 3*square_length+10);
+		winner = grid[0][0];
+		alert("GAME OVER!\n"+winner+" has won the game!");
+	}
+	if(grid[2][0] !== " " && grid[2][0] === grid[1][1] && grid[1][1] ===grid[0][2]){
+		graphics.lineStyle(10, ttt_line_color, 1);
+		draw_line(10, 3*square_length-6, 3*square_length-15, 10);
+		winner = grid[2][0];
+		alert("GAME OVER!\n"+winner+" has won the game!");
+	}	
+}
+
+function draw_line(x1,y1,x2,y2){
+	graphics.moveTo(x1,y1);
+	graphics.lineTo(x2,y2);
+}
+
+function write(x,y,string){
+	var basicText = new PIXI.Text(string);
+	basicText.x = x;
+	basicText.y = y;
+	stage.addChild(basicText);
+}
+
+
+
+draw_big_grid();
+// TODO figure out why I can't change the lineStyle's color, here & stil have lines properly show up
+// graphics.lineStyle(4, 0x404040, 1);
+
+function draw_big_grid(){
+	//big grid horizontal lines
+	for(var i = 1; i<3; i++){
+		draw_line(padding, padding+i*square_length, padding+length_of_line, padding+i*square_length);
+	}
+
+	//big grid vertical lines
+	for(var i = 1; i<3; i++){
+		draw_line(padding+i*square_length, padding, padding+i*square_length, padding+length_of_line);
+	}	
+}
+
+function draw_small_grid(grid_col,grid_row){
+	var x = grid_col*255+padding;
+	var y = grid_row*250+padding;
+	var small_square_length = 50,
+	small_padding = 50,
+	small_length_of_line = 150;
+
+	//small grid horizontal lines
+	for(var i = 1; i<3; i++){
+		draw_line(x+small_padding, y+small_padding+i*small_square_length, x+small_padding+small_length_of_line, y+small_padding+i*small_square_length);
+	}
+
+	//small grid vertical lines
+	for(var i = 1; i<3; i++){
+		draw_line(x+small_padding+i*small_square_length, y+small_padding, x+small_padding+i*small_square_length, y+small_padding+small_length_of_line);
+	}
+
+	//clickable spots
+	for(var row = 0; row<3; row++){
+		for(var col = 0; col<3 ; col++){
+// From: 
+// http://www.html5gamedevs.com/topic/21338-pushing-rectangle-into-array-and-call-it-by-name/#comment-121443
+//  has some optimization recommendations on using textures + sprites
+
+			fullGridRect = new PIXI.Graphics();
+			fullGridRect.beginFill(0xffffff, 0);
+			fullGridRect.lineStyle(0, 0xFF0000, 1);
+			fullGridRect.interactive = true; // new
+			fullGridRect.hitArea = new PIXI.Rectangle(0, 0, small_square_length, small_square_length);
+			fullGridRect.drawRect(0, 0, small_square_length, small_square_length);
+			fullGridRect.endFill();
+			fullGridRect.x = (fullGridRect.width + fullGridRect.x) * col + x+small_padding;
+			fullGridRect.y = (fullGridRect.height + fullGridRect.y) * row + y+small_padding;
+			fullGridRect.alpha = 0.5;
+			fullGridRect.interactive = true;	
+			fullGridRect.on('click', onRectClick)
+			getCell = [grid_col,grid_row,col,row];
+			// console.log(getCell);
+			fullGridRect.name =getCell;	
+			stage.addChild(fullGridRect);
+		}
+	}
+
+}
+
+stage.addChild(graphics);
+
+
+function undo(){
+
+}
+
+function onRectClick(){
+	this.alpha = 0;
+	result = T3.play(this.name[0],this.name[1],this.name[2],this.name[3],currentPlayer);
+	if(!result.success){ alert(result.message + '\n' + "Please play in column " + currentMoveX + ", row " + currentMoveY + "."); }
+}
+
+animate();
+function animate() {
+    renderer.render(stage);
+    requestAnimationFrame( animate );
+}
+
+</script>
+</body>
